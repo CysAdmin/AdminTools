@@ -1,19 +1,24 @@
 param (
         [Parameter(Mandatory=$true)]
         [ValidateNotNullOrEmpty()]
+
         [securestring]$Password,
         [Parameter(Mandatory=$true)]
         [ValidateNotNullOrEmpty()]
+
         [string]$PlainText,        
         [ValidateNotNullOrEmpty()]
-        [string]$Salt = "NC2jhdiMm26omW6Z7NsblQ=="
+        [string]$Salt = "NC2jhdiMm26omW6Z7NsblQ==",
+
+        [ValidateNotNullOrEmpty()]
+        [int32]$Iterations = 2000
 )
 
 $aesAlg = [System.Security.Cryptography.AesManaged]::Create("aes")
 # Convert salt to bytes
 $saltBytes = [System.Text.Encoding]::UTF8.GetBytes($Salt)
 
-$Ptr = [System.Runtime.InteropServices.Marshal]::SecureStringToGlobalAllocUnicode($Password)
+$Ptr = [System.Security.SecureStringMarshal]::SecureStringToGlobalAllocUnicode($Password)
 $CharArray = @()
 $PasswordByteArray = @()
     try {
@@ -27,8 +32,8 @@ $PasswordByteArray = @()
     }
 
 # Generate key and IV using PBKDF2
-$key = [System.Security.Cryptography.Rfc2898DeriveBytes]::new($PasswordByteArray, $saltBytes).GetBytes(32)
-$iv = [System.Security.Cryptography.Rfc2898DeriveBytes]::new($PasswordByteArray, $saltBytes).GetBytes(16)
+$key = [System.Security.Cryptography.Rfc2898DeriveBytes]::new($PasswordByteArray, $saltBytes, $Iterations).GetBytes(32)
+$iv = [System.Security.Cryptography.Rfc2898DeriveBytes]::new($PasswordByteArray, $saltBytes, $Iterations).GetBytes(16)
 
 # Create an encryptor
 $encryptor = $aesAlg.CreateEncryptor($key, $iv)
