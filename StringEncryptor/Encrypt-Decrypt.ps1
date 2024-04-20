@@ -132,7 +132,6 @@ $aesAlg = [System.Security.Cryptography.AesManaged]::Create("aes")
 
 
 if($Encrypt){
-
     Get-EncryptedString -PlainText $PlainText -Key $key -Iv $iv
 }elseif($Decrypt){
     Get-DecryptedString -EncryptedString $EncryptedString -Key $key -Iv $iv
