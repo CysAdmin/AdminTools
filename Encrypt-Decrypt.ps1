@@ -1,3 +1,49 @@
+<#
+.SYNOPSIS
+    Encrypt's and Decrypt's a String based on a Password
+
+.DESCRIPTION
+    Encrypt's and Decrypt's a String based on a SecureString Password. Encryption is done with 10000 Iterations (Default)
+
+.PARAMETER Encrypt
+    Switch to declare the Ecryption Status
+
+.PARAMETER Decrypt
+    Switch to declare the Decryption Status
+
+.PARAMETER EncryptedString
+    The Encrypted String in Base64 Format.
+.PARAMETER PlainText
+    The Decrypted String.
+
+.PARAMETER Password
+    The Password for Encryption / Decryption. MUST be a SecureString Object
+
+.PARAMETER Salt
+    Set a Custom Salt Value
+
+.PARAMETER Iterations
+    Set a Custom Iteration Value [int32]. Default is set to 10.000 Iterations. Encryption & Decryption Iterations must be the same
+
+.EXAMPLE
+    .\Encrypt-Decrypt.ps1 -Password (Read-Host -AsSecureString) -Encrypt -PlainText "This Text will be encrypted"
+    Example Output: jB/tenW7QNpQFXMhx6HasQ==
+
+.EXAMPLE
+    .\Encrypt-Decrypt.ps1 -Password (Read-Host -AsSecureString) -Iterations 20000 -Encrypt -PlainText "This Text will be encrypted with 20000 Iterations"
+    Example Output: sP8oBDYOJ1HDfcBMcCiYqN+cPRpycgwPKs0JPyBkSnXew13XOvjeJiwC9hfoUVjx+//C9Nyo2bTrVPIL+oyO6g==
+
+.EXAMPLE
+    .\Encrypt-Decrypt.ps1 -Password (Read-Host -AsSecureString) -Iterations 20000 -Decrypt 
+    ´ -EncryptedString sP8oBDYOJ1HDfcBMcCiYqN+cPRpycgwPKs0JPyBkSnXew13XOvjeJiwC9hfoUVjx+//C9Nyo2bTrVPIL+oyO6g==
+    Example Output: This Text will be encrypted with 20000 Iterations
+
+.NOTES
+    Author: Tim 
+    Date: 20.04.2024
+    Version: 1.0
+#>
+
 [CmdletBinding(DefaultParameterSetName = 'Ecnrypted')]
 param (
         [Parameter(Mandatory,ParameterSetName = 'Encrypt')]
@@ -22,7 +68,7 @@ param (
         [string]$Salt = "NC2jhdiMm26omW6Z7NsblQ==",
 
         [ValidateNotNullOrEmpty()]
-        [int32]$Iterations = 2000
+        [int32]$Iterations = 10000
 ) 
 
 function ConvertTo-SecureByteArray{
