@@ -19,3 +19,14 @@ $RegisteredTask.Settings.DeleteExpiredTaskAfter = 'PT0S'
 #$RegisteredTask.Settings.ExecutionTimeLimit = 'PT0S'
 
 $RegisteredTask | Set-ScheduledTask
+
+
+<#
+    REG ADD HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\PersonalizationCSP
+
+    REG ADD HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\PersonalizationCSP /v LockScreenImagePath /t REG_SZ /d "Path to Image here" /f
+
+    REG ADD HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\PersonalizationCSP /v LockScreenImageUrl /t REG_SZ /d "Path to Image here" /f
+
+    REG ADD HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\PersonalizationCSP /v LockScreenImageStatus /t REG_DWORD /d 1 /f
+#>
