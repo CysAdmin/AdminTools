@@ -1,0 +1,21 @@
+$AllLocalUsers = (Get-LocalUser).Name
+$LocalBlackList = "Administrator", "DefaultAccount", "Guest", "WDAGUtilityAccount", "Tim"
+$localUser = $AllLocalUsers | ? {!$LocalBlackList.Contains($_)}
+
+$computerName = (Get-CimInstance -ClassName win32_ComputerSystem | select name).Name
+
+$userPrincipal = "$($computerName)\$($localUser)"
+
+#$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument '-executionpolicy bypass -windowstyle hidden -file "C:\Scripts\Tests\Reg-Importer.ps1"'
+$action = New-ScheduledTaskAction -Execute "reg.exe" -Argument 'import "C:\Scripts\Tests\Reg_To_Import.txt"'
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User $userPrincipal
+$principal = New-ScheduledTaskPrincipal -UserId $userPrincipal
+$task = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger
+Register-ScheduledTask Setup-Screensaver -InputObject $task
+
+$RegisteredTask = Get-ScheduledTask -TaskName Setup-Screensaver 
+$RegisteredTask.Triggers[0].EndBoundary = ((Get-Date).AddDays(7).ToString('s'))
+$RegisteredTask.Settings.DeleteExpiredTaskAfter = 'PT0S'
+#$RegisteredTask.Settings.ExecutionTimeLimit = 'PT0S'
+
+$RegisteredTask | Set-ScheduledTask
