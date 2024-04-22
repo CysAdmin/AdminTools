@@ -8,6 +8,9 @@ Encrypt-Decrypt is a cmdlet that provides functionality to encrypt or decrypt fi
 .PARAMETER FilePath
 Specifies the path to the file to be encrypted or decrypted.
 
+.PARAMETER OutFile
+Specifies the Output File to be encrypted or decrypted.
+
 .PARAMETER Encrypt
 Indicates that the input will be encrypted. Cannot be used with Decrypt.
 
@@ -61,6 +64,10 @@ param (
         [Parameter(Mandatory,ParameterSetName = 'File Encrypt')]
         [Parameter(Mandatory,ParameterSetName = 'File Decrypt')]
         [string] $FilePath,
+
+        [Parameter(ParameterSetName = 'File Encrypt')]
+        [Parameter(ParameterSetName = 'File Decrypt')]
+        [string] $OutFile,
 
         [Parameter(Mandatory, ParameterSetName = 'Encrypt')]
         [Parameter(Mandatory, ParameterSetName = 'File Encrypt')]
@@ -139,8 +146,7 @@ function Get-EncryptedBytes {
         $encryptedBase64
     }
     catch {
-        Write-Output "Something went wrong!"
-        Write-Output $_.ErrorDetails.Message
+        throw "Something went wrong!"
     }
 }
 
@@ -158,22 +164,27 @@ function Get-EncryptedString {
         Get-EncryptedBytes -Bytes $PlainTextBytes -Iv $Iv -Key $Key
     }
     catch {
-        Write-Output "Something went wrong!"
-        Write-Output $_.ErrorDetails.Message
+        throw "Something went wrong!"
     }
 }
 
 # Encrypts a file using AES encryption and saves it
 function Protect-File {
     param(
+        [ValidateScript({
+            if (-not (Test-Path $_)) {
+                throw "Path '$_' does not exist."
+            }
+            return $true
+        })]
         [String]$FilePath,
         [byte[]]$Key,
         [byte[]]$Iv
     )
 
     $PlainTextBytes = [System.IO.File]::ReadAllBytes($FilePath)
-    $encryptedBase64 = Get-EncryptedBytes -Bytes $PlainTextBytes -Key $Key -Iv $Iv
-    $encryptedBase64 > $FilePath
+    $EncryptedFileContent = Get-EncryptedBytes -Bytes $PlainTextBytes -Key $Key -Iv $Iv
+    $EncryptedFileContent
 }
 
 # Decrypt bytes using AES encryption
@@ -189,8 +200,7 @@ function Get-DecryptedBytes {
         $encryptedBytes = [Convert]::FromBase64String($EncryptedString)
     }
     catch {
-        Write-Output "Incorrect Input!"
-        exit 0
+        throw "Incorrect Input!"
     }
 
     try {
@@ -206,8 +216,7 @@ function Get-DecryptedBytes {
     }
     catch {
         # Handle incorrect password
-        Write-Output "Wrong Password!"
-        exit 0
+        throw "Wrong Password!"
     }
 }
 
@@ -225,14 +234,20 @@ function Get-DecryptedString {
 # Decrypts an encrypted file and saves the decrypted content
 function Unprotect-File {
     param(
+        [ValidateScript({
+            if (-not (Test-Path $_)) {
+                throw "Path '$_' does not exist."
+            }
+            return $true
+        })]
         [String]$FilePath,
         [byte[]]$Key,
         [byte[]]$Iv
     )
 
     $EncryptedString = Get-Content $FilePath
-    $DecryptedFile =  Get-DecryptedString -EncryptedString $EncryptedString -Key $Key -Iv $Iv
-    $DecryptedFile > $FilePath
+    $DecryptedFileContent =  Get-DecryptedString -EncryptedString $EncryptedString -Key $Key -Iv $Iv
+    $DecryptedFileContent
 }
 
 
@@ -257,9 +272,39 @@ switch($PSCmdlet.ParameterSetName){
         Get-DecryptedString -EncryptedString $EncryptedString -Key $key -Iv $iv
     }
     'File Encrypt'{
-        Protect-File -FilePath $FilePath -Key $key -Iv $iv   
+        try {
+            if("" -ne $OutFile){
+                $Output = Protect-File -FilePath $FilePath -Key $key -Iv $iv  
+                if($null -ne $Output){
+                    $output | Out-File -FilePath $OutFile
+                } 
+            }else {
+                $output =  Protect-File -FilePath $FilePath -Key $key -Iv $iv
+                Write-Output $output
+            }    
+        }
+        catch {
+            Write-Output $_.Exception.Message
+        }
+        
+           
     }    
     'File Decrypt'{
-        Unprotect-File -FilePath $FilePath -Key $key -Iv $iv   
+        try {
+            if("" -ne $OutFile){
+                $Output = Unprotect-File -FilePath $FilePath -Key $key -Iv $iv  
+                if($null -ne $Output){
+                    $output | Out-File -FilePath $OutFile
+                }               
+                
+            }else {
+                $output =  Unprotect-File -FilePath $FilePath -Key $key -Iv $iv
+                Write-Output $output
+            }   
+        }
+        catch {
+            Write-Output $_.Exception.Message
+        }
+        
     }
 }
