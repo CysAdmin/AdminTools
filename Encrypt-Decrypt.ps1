@@ -1,55 +1,73 @@
 <#
 .SYNOPSIS
-    Encrypt's and Decrypt's a String based on a Password
+Encrypts or decrypts a file or string using AES encryption.
 
 .DESCRIPTION
-    Encrypt's and Decrypt's a String based on a SecureString Password. Encryption is done with 10000 Iterations (Default)
+Encrypt-Decrypt is a cmdlet that provides functionality to encrypt or decrypt files or strings using AES encryption. It supports two modes: encryption and decryption. When in encryption mode, it encrypts a plaintext string or file. When in decryption mode, it decrypts an encrypted string or file.
+
+.PARAMETER FilePath
+Specifies the path to the file to be encrypted or decrypted.
 
 .PARAMETER Encrypt
-    Switch to declare the Ecryption Status
+Indicates that the input will be encrypted. Cannot be used with Decrypt.
 
 .PARAMETER Decrypt
-    Switch to declare the Decryption Status
+Indicates that the input will be decrypted. Cannot be used with Encrypt.
 
 .PARAMETER EncryptedString
-    The Encrypted String in Base64 Format.
+Specifies the encrypted string to be decrypted.
+
 .PARAMETER PlainText
-    The Decrypted String.
+Specifies the plaintext string to be encrypted.
 
 .PARAMETER Password
-    The Password for Encryption / Decryption. MUST be a SecureString Object
+Specifies the password to be used for encryption or decryption. This parameter is mandatory.
 
 .PARAMETER Salt
-    Set a Custom Salt Value
+Specifies the salt value to be used for key derivation. Default value is "NC2jhdiMm26omW6Z7NsblQ==".
 
 .PARAMETER Iterations
-    Set a Custom Iteration Value [int32]. Default is set to 10.000 Iterations. Encryption & Decryption Iterations must be the same
+Specifies the number of iterations for key derivation. Default value is 20000.
 
 .EXAMPLE
-    .\Encrypt-Decrypt.ps1 -Password (Read-Host -AsSecureString) -Encrypt -PlainText "This Text will be encrypted"
-    Example Output: jB/tenW7QNpQFXMhx6HasQ==
+Encrypt a file using a password and default salt and iterations:
+Encrypt-FileString -FilePath "C:\Path\To\File.txt" -Encrypt -Password (Read-Host -AsSecureString)
 
 .EXAMPLE
-    .\Encrypt-Decrypt.ps1 -Password (Read-Host -AsSecureString) -Iterations 20000 -Encrypt -PlainText "This Text will be encrypted with 20000 Iterations"
-    Example Output: sP8oBDYOJ1HDfcBMcCiYqN+cPRpycgwPKs0JPyBkSnXew13XOvjeJiwC9hfoUVjx+//C9Nyo2bTrVPIL+oyO6g==
-
+Decrypt a file using a password and default salt and iterations:
+Encrypt-FileString -FilePath "C:\Path\To\EncryptedFile.txt" -Decrypt -Password (Read-Host -AsSecureString)
 .EXAMPLE
-    .\Encrypt-Decrypt.ps1 -Password (Read-Host -AsSecureString) -Iterations 20000 -Decrypt 
-    ´ -EncryptedString sP8oBDYOJ1HDfcBMcCiYqN+cPRpycgwPKs0JPyBkSnXew13XOvjeJiwC9hfoUVjx+//C9Nyo2bTrVPIL+oyO6g==
-    Example Output: This Text will be encrypted with 20000 Iterations
+Encrypt a plaintext string using a password and default salt and iterations:
+Encrypt-FileString -PlainText "Hello, world!" -Encrypt -Password (Read-Host -AsSecureString)
+.EXAMPLE
+Decrypt an encrypted string using a password and default salt and iterations:
+Encrypt-FileString -EncryptedString "EncryptedStringHere" -Decrypt -Password (Read-Host -AsSecureString)
 
 .NOTES
     Author: Tim 
     Date: 20.04.2024
-    Version: 1.0
+    Version: 1.1
+
+Changelog:
+
+V1.0:
+    Initial Creation
+V1.1:
+    Add Support to Encrypt / Decrypt Files
 #>
 
-[CmdletBinding(DefaultParameterSetName = 'Ecnrypted')]
+[CmdletBinding(DefaultParameterSetName = 'Encrypt')]
 param (
-        [Parameter(Mandatory,ParameterSetName = 'Encrypt')]
+        [Parameter(Mandatory,ParameterSetName = 'File Encrypt')]
+        [Parameter(Mandatory,ParameterSetName = 'File Decrypt')]
+        [string] $FilePath,
+
+        [Parameter(Mandatory, ParameterSetName = 'Encrypt')]
+        [Parameter(Mandatory, ParameterSetName = 'File Encrypt')]
         [switch] $Encrypt,
         
-        [Parameter(Mandatory,ParameterSetName = 'Decrypt')]
+        [Parameter(Mandatory, ParameterSetName = 'Decrypt')]
+        [Parameter(Mandatory, ParameterSetName = 'File Decrypt')]
         [switch] $Decrypt,
 
         [Parameter(Mandatory, ParameterSetName = 'Decrypt')]
@@ -68,15 +86,15 @@ param (
         [string]$Salt = "NC2jhdiMm26omW6Z7NsblQ==",
 
         [ValidateNotNullOrEmpty()]
-        [int32]$Iterations = 10000
+        [int32]$Iterations = 20000
 ) 
 
-function ConvertTo-SecureByteArray{
+# Convert SecureString password to byte array
+function ConvertTo-SecureByteArray {
     param(
         [SecureString]$Password
     )
 
-    # Convert SecureString password to byte array
     $Ptr = [System.Security.SecureStringMarshal]::SecureStringToGlobalAllocUnicode($Password)
     $CharArray = @()
     $PasswordByteArray = @()
@@ -94,24 +112,22 @@ function ConvertTo-SecureByteArray{
     }
 }
 
-function Get-EncryptedString{
+# Encrypt bytes using AES encryption
+function Get-EncryptedBytes {
     param(
-        [String]$PlainText,
-        [byte[]] $Key,
-        [byte[]] $Iv
+        [byte[]]$Bytes,        
+        [byte[]]$Key,
+        [byte[]]$Iv
     )
-
-    $PlainTextBytes = [System.Text.Encoding]::UTF8.GetBytes($PlainText)
 
     try {
         $encryptor = $aesAlg.CreateEncryptor($Key, $Iv)
 
-        # Encrypt the plaintext
         $msEncrypt = New-Object System.IO.MemoryStream
         $csEncrypt = New-Object System.Security.Cryptography.CryptoStream($msEncrypt, $encryptor, [System.Security.Cryptography.CryptoStreamMode]::Write)
 
         # Write the bytes to the crypto stream
-        $csEncrypt.Write($PlainTextBytes, 0, $PlainTextBytes.Length)
+        $csEncrypt.Write($Bytes, 0, $Bytes.Length)
         $csEncrypt.FlushFinalBlock() # Flush final block to ensure all data is written
         $csEncrypt.Close()
 
@@ -120,29 +136,60 @@ function Get-EncryptedString{
 
         # Convert encrypted bytes to base64 string (for easy representation)
         $encryptedBase64 = [Convert]::ToBase64String($encryptedBytes)
-
-        $encryptedBase64    
+        $encryptedBase64
     }
     catch {
-        write-output "Something went wrong!"
+        Write-Output "Something went wrong!"
         Write-Output $_.ErrorDetails.Message
     }
-
 }
 
-function Get-DecryptedString{
+# Encrypt a plaintext string
+function Get-EncryptedString {
+    param(
+        [String]$PlainText,
+        [byte[]]$Key,
+        [byte[]]$Iv
+    )
+
+    $PlainTextBytes = [System.Text.Encoding]::UTF8.GetBytes($PlainText)
+
+    try {
+        Get-EncryptedBytes -Bytes $PlainTextBytes -Iv $Iv -Key $Key
+    }
+    catch {
+        Write-Output "Something went wrong!"
+        Write-Output $_.ErrorDetails.Message
+    }
+}
+
+# Encrypts a file using AES encryption and saves it
+function Protect-File {
+    param(
+        [String]$FilePath,
+        [byte[]]$Key,
+        [byte[]]$Iv
+    )
+
+    $PlainTextBytes = [System.IO.File]::ReadAllBytes($FilePath)
+    $encryptedBase64 = Get-EncryptedBytes -Bytes $PlainTextBytes -Key $Key -Iv $Iv
+    $encryptedBase64 > $FilePath
+}
+
+# Decrypt bytes using AES encryption
+function Get-DecryptedBytes {
     param(
         [String]$EncryptedString,
-        [byte[]] $Key,
-        [byte[]] $Iv
+        [byte[]]$Key,
+        [byte[]]$Iv
     )
+
     $decryptor = $aesAlg.CreateDecryptor($key, $iv)
-    
     try {
         $encryptedBytes = [Convert]::FromBase64String($EncryptedString)
     }
     catch {
-        write-output "Incorrect Input!"
+        Write-Output "Incorrect Input!"
         exit 0
     }
 
@@ -159,10 +206,35 @@ function Get-DecryptedString{
     }
     catch {
         # Handle incorrect password
-        write-output "Wrong Password!"
+        Write-Output "Wrong Password!"
         exit 0
     }
 }
+
+# Decrypts an encrypted string
+function Get-DecryptedString {
+    param(
+        [String]$EncryptedString,
+        [byte[]]$Key,
+        [byte[]]$Iv
+    )
+
+    Get-DecryptedBytes -EncryptedString $EncryptedString -Key $Key -Iv $Iv
+}
+
+# Decrypts an encrypted file and saves the decrypted content
+function Unprotect-File {
+    param(
+        [String]$FilePath,
+        [byte[]]$Key,
+        [byte[]]$Iv
+    )
+
+    $EncryptedString = Get-Content $FilePath
+    $DecryptedFile =  Get-DecryptedString -EncryptedString $EncryptedString -Key $Key -Iv $Iv
+    $DecryptedFile > $FilePath
+}
+
 
 $PasswordByteArray = ConvertTo-SecureByteArray -Password $Password
 
@@ -177,8 +249,17 @@ $PasswordByteArray = ConvertTo-SecureByteArray -Password $Password
 $aesAlg = [System.Security.Cryptography.AesManaged]::Create("aes")
 
 
-if($Encrypt){
-    Get-EncryptedString -PlainText $PlainText -Key $key -Iv $iv
-}elseif($Decrypt){
-    Get-DecryptedString -EncryptedString $EncryptedString -Key $key -Iv $iv
+switch($PSCmdlet.ParameterSetName){
+    Encrypt{
+        Get-EncryptedString -PlainText $PlainText -Key $key -Iv $iv
+    }
+    Decrypt{
+        Get-DecryptedString -EncryptedString $EncryptedString -Key $key -Iv $iv
+    }
+    'File Encrypt'{
+        Protect-File -FilePath $FilePath -Key $key -Iv $iv   
+    }    
+    'File Decrypt'{
+        Unprotect-File -FilePath $FilePath -Key $key -Iv $iv   
+    }
 }
